@@ -1,0 +1,523 @@
+Program.Sub.ScreenSU.Start
+gui.F_RtrInfo..create
+gui.F_RtrInfo..caption("Router Infomation")
+gui.F_RtrInfo..size(13650,7920)
+gui.F_RtrInfo..position(0,0)
+gui.F_RtrInfo..event(unload,Unload)
+gui.F_RtrInfo..alwaysontop(False)
+gui.F_RtrInfo..fontname("Arial")
+gui.F_RtrInfo..fontsize(8)
+gui.F_RtrInfo..forecolor(0)
+gui.F_RtrInfo..fontstyle(,,,,)
+gui.F_RtrInfo..BackColor(-2147483633)
+gui.F_RtrInfo..controlbox(True)
+gui.F_RtrInfo..maxbutton(False)
+gui.F_RtrInfo..minbutton(False)
+gui.F_RtrInfo..mousepointer(0)
+gui.F_RtrInfo..moveable(True)
+gui.F_RtrInfo..sizeable(False)
+gui.F_RtrInfo..ShowInTaskBar(True)
+gui.F_RtrInfo..titlebar(True)
+gui.F_RtrInfo.lblRtr.create(label,"Enter Router Information",True,1935,255,1,100,200,True,0,Arial,8,-2147483633,0)
+gui.F_RtrInfo.gsfgRtr.create(gsflexgrid)
+gui.F_RtrInfo.gsfgRtr.FixedRows(0)
+gui.F_RtrInfo.gsfgRtr.FixedCols(0)
+gui.F_RtrInfo.gsfgRtr.visible(True)
+gui.F_RtrInfo.gsfgRtr.size(13305,6435)
+gui.F_RtrInfo.gsfgRtr.zorder(0)
+gui.F_RtrInfo.gsfgRtr.position(100,450)
+gui.F_RtrInfo.gsfgRtr.enabled(True)
+gui.F_RtrInfo.cmdSave.create(button)
+gui.F_RtrInfo.cmdSave.caption("Save")
+gui.F_RtrInfo.cmdSave.visible(True)
+gui.F_RtrInfo.cmdSave.size(855,375)
+gui.F_RtrInfo.cmdSave.zorder(0)
+gui.F_RtrInfo.cmdSave.position(100,7000)
+gui.F_RtrInfo.cmdSave.enabled(True)
+gui.F_RtrInfo.cmdSave.fontname("Arial")
+gui.F_RtrInfo.cmdSave.fontsize(8)
+gui.F_RtrInfo.cmdSave.event(click,cmdsave_click)
+
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Variable.Global.sFile.Declare(String)
+Variable.UDT.uRtrLine.Define("Router",String)
+Variable.UDT.uRtrLine.Define("Part",String)
+Variable.UDT.uRtrLine.Define("Description",String)
+Variable.UDT.uRtrLine.Define("LeadTime",Long)
+Variable.UDT.uRtrLine.Define("UoM",String)
+Variable.UDT.uRtrLine.Define("Qty",Float)
+Variable.UDT.uRtrLine.Define("Cost",Float)
+Variable.uGlobal.uRtrLine.Declare("uRtrLine")
+Variable.UDT.uRtrHead.Define("Router",String)
+Variable.UDT.uRtrHead.Define("Description",String)
+Variable.UDT.uRtrHead.Define("PL",String)
+Variable.UDT.uRtrHead.Define("UoM",String)
+Variable.UDT.uRtrHead.Define("Qty1",Long)
+Variable.UDT.uRtrHead.Define("Qty2",Long)
+Variable.UDT.uRtrHead.Define("Qty3",Long)
+Variable.UDT.uRtrHead.Define("Qty4",Long)
+Variable.UDT.uRtrHead.Define("Qty5",Long)
+Variable.UDT.uRtrHead.Define("Qty6",Long)
+Variable.UDT.uRtrHead.Define("Qty7",Long)
+Variable.UDT.uRtrHead.Define("Qty8",Long)
+Variable.UDT.uRtrHead.Define("Qty9",Long)
+Variable.UDT.uRtrHead.Define("Qty10",Long)
+Variable.uGlobal.uRtrHead.Declare("uRtrHead")
+Program.External.Include.Library("GCG_3200_RtrUploadUPLRTRHFIMA.lib")
+Program.Sub.Preflight.End
+
+
+Program.Sub.Main.Start
+'Coded by: MLA
+'Project Start Date: 2/2/2011
+'Notes:
+'  FIMA
+
+F.ODBC.Connection!con.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+F.Intrinsic.Control.CallSub(Fileload)
+
+Program.Sub.Main.End
+
+
+Program.Sub.Unload.Start
+F.ODBC.Connection!con.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Unload.End
+
+
+Program.Sub.FileLoad.Start
+V.Local.sError.Declare(String)
+V.Local.sFile.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("FileLoad_Err")
+F.Intrinsic.Control.ClearErrors
+
+Function.Intrinsic.UI.ShowOpenFileDialog("","txt|*.txt",,Variable.Local.sFile)
+F.Intrinsic.Control.If(V.Local.sFile,=,"***CANCEL***")
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.Else
+	F.Intrinsic.File.File2String(V.Local.sFile,V.Global.sFile)
+	F.Intrinsic.String.Split(V.Global.sFile,V.Ambient.NewLine,V.Global.sFile)
+	F.Intrinsic.Control.CallSub(FileChk)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("FileLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.FileLoad.End
+
+
+Program.Sub.FileChk.Start
+V.Local.sError.Declare(String)
+V.Local.i.Declare(Long)
+V.Local.sPart.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.sPartExist.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("FileChk_Err")
+F.Intrinsic.Control.ClearErrors
+
+F.Intrinsic.Control.For(V.Local.i,V.Global.sFile.LBound,V.Global.sFile.UBound,1)
+	F.Intrinsic.Control.If(V.Global.sFile(v.Local.i),<>,"")
+		F.Intrinsic.Control.If(V.Local.i,>,1)
+			F.Intrinsic.String.Mid(V.Global.sFile(V.Local.i),1,17,V.Local.sPart)
+			F.Intrinsic.String.Concat("Select ROUTER from V_ROUTER_HEADER where ROUTER = '",V.Local.sPart.Trim,"'",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,<>,True)
+				F.Intrinsic.String.Concat("Router ",V.Local.sPart," already exists!",V.Local.sError)
+				F.Intrinsic.UI.Msgbox(V.Local.sError,"Router Exists")
+				F.ODBC.con!rst.Close
+				F.Intrinsic.Control.CallSub(Unload)
+			F.Intrinsic.Control.EndIf
+			F.ODBC.con!rst.Close
+			F.Intrinsic.String.Mid(V.Global.sFile(V.Local.i),47,10,V.Local.sPart)
+			F.Intrinsic.String.Concat("Select PART from INVENTORY_MSTR where PART = '",V.Local.sPart.Trim,"'",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,True)
+				F.Intrinsic.String.Concat(V.Local.sPartExist,V.Local.sPart.Trim,V.Ambient.NewLine,V.Local.sPartExist)
+			F.Intrinsic.Control.EndIf
+			F.ODBC.con!rst.Close
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.Control.If(V.Local.sPartExist,=,"")
+	F.Intrinsic.Control.CallSub(Loadudt)
+F.Intrinsic.Control.Else
+	F.Intrinsic.String.Concat("The following part(s) do not exist in inventory:",V.Ambient.NewLine,V.Local.sPartExist,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError,"Part Error")
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("FileChk_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.FileChk.End
+
+
+Program.Sub.LoadUDT.Start
+V.Local.sError.Declare(String)
+V.Local.i.Declare(Long)
+V.Local.sRouter.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.fQty.Declare(Float)
+V.Local.sMM.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.iUB.Declare(Long)
+V.Local.sSql.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.fCost.Declare(Float)
+V.Local.iLead.Declare(Long)
+V.Local.sDesc.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("LoadUDT_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.uGlobal.uRtrLine.Redim(-1,-1)
+V.uGlobal.uRtrHead.Redim(-1,-1)
+F.Intrinsic.Control.For(V.Local.i,V.Global.sFile.LBound,V.Global.sFile.UBound,1)
+	F.Intrinsic.Control.If(V.Global.sFile(V.Local.i),<>,"")
+		F.Intrinsic.Control.If(V.Local.i,>,1)
+			F.Intrinsic.String.Mid(V.Global.sFile(V.Local.i),1,17,V.Local.sRouter)
+			F.Intrinsic.String.Mid(V.Global.sFile(V.Local.i),47,10,V.Local.sPart)
+			F.Intrinsic.String.Mid(V.Global.sFile(v.Local.i),57,6,V.Local.fQty)
+			F.Intrinsic.String.Mid(V.Global.sFile(V.Local.i),64,3,V.Local.sMM)
+			F.Intrinsic.Control.If(V.uGlobal.uRtrHead.UBound,=,-1)
+				V.uGlobal.uRtrHead.Redim(0,0)
+				V.uGlobal.uRtrHead!Router.Set(V.Local.sRouter.Trim)
+				V.uGlobal.uRtrHead!Qty1.Set(0)
+				V.uGlobal.uRtrHead!Qty2.Set(0)
+				V.uGlobal.uRtrHead!Qty3.Set(0)
+				V.uGlobal.uRtrHead!Qty4.Set(0)
+				V.uGlobal.uRtrHead!Qty5.Set(0)
+				V.uGlobal.uRtrHead!Qty6.Set(0)
+				V.uGlobal.uRtrHead!Qty7.Set(0)
+				V.uGlobal.uRtrHead!Qty8.Set(0)
+				V.uGlobal.uRtrHead!Qty9.Set(0)
+				V.uGlobal.uRtrHead!Qty10.Set(0)
+			F.Intrinsic.Control.Else
+				F.Intrinsic.Variable.UDTSeek(V.uGlobal.uRtrHead!Router,V.Local.sRouter.Trim,0,V.Local.sRet)
+				F.Intrinsic.Control.If(V.Local.sRet,=,"")
+					V.Local.iUB.Set(V.uGlobal.uRtrHead.UBound)
+					F.Intrinsic.Math.Add(V.Local.iUB,1,V.Local.iUB)
+					V.uGlobal.uRtrHead.RedimPreserve(V.uGlobal.uRtrHead.LBound,V.Local.iUB)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Router.Set(V.Local.sRouter.Trim)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty1.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty2.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty3.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty4.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty5.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty6.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty7.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty8.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty9.Set(0)
+					V.uGlobal.uRtrHead(V.Local.iUB)!Qty10.Set(0)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.String.Concat("Select PART, AMT_COST, AMT_ALT_COST, UM_INVENTORY, TIME_MATERIAL_LEAD from INVENTORY_MSTR where PART = '",V.Local.sPart.Trim,"'",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+				V.Local.sUM.Set(V.ODBC.con!rst.FieldValTrim!UM_INVENTORY)
+				V.Local.iLead.Set(V.ODBC.con!rst.FieldValLong!TIME_MATERIAL_LEAD)
+				F.Intrinsic.Control.If(V.ODBC.con!rst.FieldValFloat!AMT_ALT_COST,=,0)
+					V.Local.fCost.Set(V.ODBC.con!rst.FieldValFloat!AMT_COST)
+				F.Intrinsic.Control.Else
+					V.Local.fCost.Set(V.ODBC.con!rst.FieldValFloat!AMT_ALT_COST)
+				F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.EndIf
+			F.ODBC.con!rst.Close
+			F.Intrinsic.String.Concat("Select PART, DESCRIPTION from INVENTORY_MSTR where PART = '",V.Local.sPart.Trim,"'",V.Local.sSql)
+			F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+			F.Intrinsic.Control.If(V.ODBC.con!rst.EOF,=,False)
+				V.Local.sDesc.Set(V.ODBC.con!rst.FieldValTrim!DESCRIPTION)
+			F.Intrinsic.Control.EndIf
+			F.ODBC.con!rst.Close
+			F.Intrinsic.Control.If(V.Local.sMM.Trim,=,"MM")
+				F.Intrinsic.Math.Div(V.Local.fQty,1000,V.Local.fQty)
+			F.Intrinsic.Control.EndIf
+			F.Intrinsic.Control.If(V.uGlobal.uRtrLine.UBound,=,-1)
+				V.uGlobal.uRtrLine.Redim(0,0)
+				V.uGlobal.uRtrLine!Router.Set(V.Local.sRouter.Trim)
+				V.uGlobal.uRtrLine!Part.Set(V.Local.sPart.Trim)
+				V.uGlobal.uRtrLine!Description.Set(V.Local.sDesc)
+				V.uGlobal.uRtrLine!UoM.Set(V.Local.sUM)
+				V.uGlobal.uRtrLine!Cost.Set(V.Local.fCost)
+				V.uGlobal.uRtrLine!LeadTime.Set(V.Local.iLead)
+				V.uGlobal.uRtrLine!Qty.Set(V.Local.fQty)
+			F.Intrinsic.Control.Else
+				V.Local.iUB.Set(V.uGlobal.uRtrLine.UBound)
+				F.Intrinsic.Math.Add(V.Local.iUB,1,V.Local.iUB)
+				V.uGlobal.uRtrLine.RedimPreserve(V.uGlobal.uRtrLine.LBound,V.Local.iUB)
+				V.uGlobal.uRtrLine(V.Local.iUB)!Router.Set(V.Local.sRouter.Trim)
+				V.uGlobal.uRtrLine(V.Local.iUB)!Part.Set(V.Local.sPart.Trim)
+				V.uGlobal.uRtrLine(V.Local.iUB)!Description.Set(V.Local.sDesc)
+				V.uGlobal.uRtrLine(V.Local.iUB)!UoM.Set(V.Local.sUM)
+				V.uGlobal.uRtrLine(V.Local.iUB)!Cost.Set(V.Local.fCost)
+				V.uGlobal.uRtrLine(V.Local.iUB)!LeadTime.Set(V.Local.iLead)
+				V.uGlobal.uRtrLine(V.Local.iUB)!Qty.Set(V.Local.fQty)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.Control.CallSub(Gridtitle)
+F.Intrinsic.Control.CallSub(Gridstyle)
+F.Intrinsic.Control.CallSub(Gridload)
+Gui.F_RtrInfo..Show
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("LoadUDT_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.LoadUDT.End
+
+
+Program.Sub.GridStyle.Start
+V.Local.sError.Declare(String)
+V.Local.iCol.Declare(Long)
+
+F.Intrinsic.Control.SetErrorHandler("GridStyle_Err")
+F.Intrinsic.Control.ClearErrors
+
+Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,0,"type","locked",True)
+Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,0,"format","alignment",2)
+Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,0,"fontstyle","bold",False)
+V.Local.iCol.Set(2)
+F.Intrinsic.Control.DoUntil(V.Local.iCol,=,14)
+	Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,V.Local.iCol,"type","locked",False)
+	F.Intrinsic.Control.If(V.Local.iCol,<=,3)
+		Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,V.Local.iCol,"format","alignment",2)
+	F.Intrinsic.Control.Else
+		Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,V.Local.iCol,"format","mask",0)
+		Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,V.Local.iCol,"format","alignment",6)
+	F.Intrinsic.Control.EndIf
+	Gui.F_RtrInfo.gsfgRtr.BuildStyle(2,V.Local.iCol,"fontstyle","bold",False)
+	F.Intrinsic.Math.Add(V.Local.iCol,1,V.Local.iCol)
+F.Intrinsic.Control.Loop
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GridStyle_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.GridStyle.End
+
+
+Program.Sub.GridTitle.Start
+V.Local.sError.Declare(String)
+V.Local.iCol.Declare(Long)
+
+F.Intrinsic.Control.SetErrorHandler("GridTitle_Err")
+F.Intrinsic.Control.ClearErrors
+
+Gui.F_RtrInfo.gsfgRtr.Rows(1)
+Gui.F_RtrInfo.gsfgRtr.Cols(14)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(0,0,"Router")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(0,1600)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(1,0,"Description")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(1,2500)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(2,0,"PL")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(2,500)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(3,0,"UM")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(3,500)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(4,0,"Qty 1")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(4,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(5,0,"Qty 2")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(5,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(6,0,"Qty 3")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(6,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(7,0,"Qty 4")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(7,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(8,0,"Qty 5")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(8,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(9,0,"Qty 6")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(9,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(10,0,"Qty 7")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(10,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(11,0,"Qty 8")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(11,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(12,0,"Qty 9")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(12,800)
+Gui.F_RtrInfo.gsfgRtr.TextMatrix(13,0,"Qty 10")
+Gui.F_RtrInfo.gsfgRtr.ColWidth(13,800)
+
+F.Intrinsic.Control.DoUntil(V.Local.iCol,=,14)
+	Gui.F_RtrInfo.gsfgRtr.BuildStyle(1,V.Local.iCol,"type","locked",True)
+	Gui.F_RtrInfo.gsfgRtr.BuildStyle(1,V.Local.iCol,"format","alignment",2)
+	Gui.F_RtrInfo.gsfgRtr.BuildStyle(1,V.Local.iCol,"fontstyle","bold",True)
+	F.Intrinsic.Math.Add(V.Local.iCol,1,V.Local.iCol)
+F.Intrinsic.Control.Loop
+Gui.F_RtrInfo.gsfgRtr.ApplyStyle(0,1)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GridTitle_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.GridTitle.End
+
+
+Program.Sub.GridLoad.Start
+V.Local.sError.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("GridLoad_Err")
+F.Intrinsic.Control.ClearErrors
+
+Gui.F_RtrInfo.gsfgRtr.LoadFromUDT("uGlobal.uRtrHead","Router*!*Description*!*PL*!*UoM*!*Qty1*!*Qty2*!*Qty3*!*Qty4*!*Qty5*!*Qty6*!*Qty7*!*Qty8*!*Qty9*!*Qty10",2)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GridLoad_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.GridLoad.End
+
+
+program.sub.cmdsave_click.start
+V.Local.sError.Declare(String)
+V.Local.iRow.Declare(Long)
+V.Local.i.Declare(Long)
+V.Local.sRow.Declare(String)
+V.Local.sRet.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("cmdSave_Err")
+F.Intrinsic.Control.ClearErrors
+
+Gui.F_RtrInfo..Visible(False)
+V.Local.iRow.Set(V.Screen.F_RtrInfo!gsfgRtr.Rows)
+F.Intrinsic.Math.Sub(V.Local.iRow,1,V.Local.iRow)
+F.Intrinsic.Control.For(V.Local.i,1,V.Local.iRow,1)
+	Gui.F_RtrInfo.gsfgRtr.ReadRow(V.Local.i,V.Local.sRow)
+	F.Intrinsic.String.Split(V.Local.sRow,"*!*",V.Local.sRow)
+	F.Intrinsic.Variable.UDTSeek(V.uGlobal.uRtrHead!Router,V.Local.sRow(0),0,V.Local.sRet)
+	V.uGlobal.uRtrHead(V.Local.sRet.Long)!Description.Set(V.Local.sRow(1))
+	V.uGlobal.uRtrHead(V.Local.sRet.Long)!PL.Set(V.Local.sRow(2))
+	V.uGlobal.uRtrHead(V.Local.sRet.Long)!UoM.Set(V.Local.sRow(3))
+	F.Intrinsic.Control.If(V.Local.sRow(4),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty1.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty1.Set(V.Local.sRow(4).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(5),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty2.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty2.Set(V.Local.sRow(5).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(6),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty3.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty3.Set(V.Local.sRow(6).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(7),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty4.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty4.Set(V.Local.sRow(7).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(8),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty5.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty5.Set(V.Local.sRow(8).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(9),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty6.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty6.Set(V.Local.sRow(9).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(10),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty7.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty7.Set(V.Local.sRow(10).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(11),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty8.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty8.Set(V.Local.sRow(11).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(12),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty9.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty9.Set(V.Local.sRow(12).Long)
+	F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.If(V.Local.sRow(13),=,"")
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty10.Set(0)
+	F.Intrinsic.Control.Else
+		V.uGlobal.uRtrHead(V.Local.sRet.Long)!Qty10.Set(V.Local.sRow(13).Long)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.Control.CallSub(Loadrst)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("cmdSave_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+program.sub.cmdsave_click.end
+
+
+Program.Sub.LoadRST.Start
+V.Local.sError.Declare(String)
+V.Local.sSql.Declare(String)
+V.Local.iMulti.Declare(Long)
+V.Local.iSeq.Declare(Long)
+V.Local.i.Declare(Long)
+V.Local.ia.Declare(Long)
+V.Local.sRet.Declare(String)
+V.Local.iRow.Declare(Long)
+V.Local.sLMO.Declare(String)
+
+F.Intrinsic.Control.SetErrorHandler("LoadRST_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sSql.Set("Select MULT_FACTOR from OPT_RES_COM where FUNCT = 'RS' and TYPE = 'CO' and FILLER = ''")
+F.ODBC.Connection!con.OpenRecordsetRO("rst",V.Local.sSql)
+V.Local.iMulti.Set(V.ODBC.con!rst.FieldValTrim!MULT_FACTOR)
+F.ODBC.con!rst.Close
+
+V.Local.sLMO.Set("M")
+F.Intrinsic.Control.For(V.Local.i,V.uGlobal.uRtrHead.LBound,V.uGlobal.uRtrHead.UBound,1)
+	V.Local.iSeq.Set(V.Local.iMulti)
+	F.Intrinsic.Variable.UDTSeek(V.uGlobal.uRtrLine!Router,V.uGlobal.uRtrHead(V.Local.i)!Router,0,V.Local.sRet)
+	F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+	F.Intrinsic.Control.For(V.Local.ia,V.Local.sRet.LBound,V.Local.sRet.UBound,1)
+		V.Local.iRow.Set(V.Local.sRet(V.Local.ia))
+		F.Intrinsic.Control.CallSub(Routeraddrecord,"Number",V.uGlobal.uRtrHead(V.Local.i)!Router,"Desc",V.uGlobal.uRtrHead(V.Local.i)!Description,"PL",V.uGlobal.uRtrHead(V.Local.i)!PL,"LeadTime",V.uGlobal.uRtrLine(V.Local.iRow)!LeadTime,"Qty10",V.uGlobal.uRtrHead(V.Local.i)!Qty10,"Qty9",V.uGlobal.uRtrHead(V.Local.i)!Qty9,"Qty8",V.uGlobal.uRtrHead(V.Local.i)!Qty8,"Qty7",V.uGlobal.uRtrHead(V.Local.i)!Qty7,"Qty6",V.uGlobal.uRtrHead(V.Local.i)!Qty6,"Qty5",V.uGlobal.uRtrHead(V.Local.i)!Qty5,"Qty4",V.uGlobal.uRtrHead(V.Local.i)!Qty4,"Qty3",V.uGlobal.uRtrHead(V.Local.i)!Qty3,"Qty2",V.uGlobal.uRtrHead(V.Local.i)!Qty2,"Qty1",V.uGlobal.uRtrHead(V.Local.i)!Qty1,"Seq_Desc",V.uGlobal.uRtrLine(V.Local.iRow)!Description,"UM",V.uGlobal.uRtrLine(V.Local.iRow)!UoM,"Rate",V.uGlobal.uRtrLine(V.Local.iRow)!Cost,"RunTime",V.uGlobal.uRtrLine(V.Local.iRow)!Qty,"Part",V.uGlobal.uRtrLine(V.Local.iRow)!Part,"LMO",V.Local.sLMO,"Sequence",V.Local.iSeq)
+		F.Intrinsic.Math.Add(V.Local.iSeq,V.Local.iMulti,V.Local.iSeq)
+	F.Intrinsic.Control.Next(V.Local.ia)
+F.Intrinsic.Control.Next(V.Local.i)
+F.Intrinsic.Control.CallSub(Routergenerate)
+F.Intrinsic.Control.CallSub(Unload)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("LoadRST_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+Program.Sub.LoadRST.End
+
+
+
